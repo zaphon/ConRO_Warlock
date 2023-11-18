@@ -138,7 +138,7 @@ function ConRO.Warlock.Under10(_, timeShift, currentSpell, gcd)
 --Conditions
 	local _is_moving 																					= ConRO:PlayerSpeed();
 	local _enemies_in_melee, _target_in_melee															= ConRO:Targets("Melee");
-	local _target_in_10yrds 																			= CheckInteractDistance("target", 3);
+	local _target_in_10yrds 																			= ConRO:CheckInteractDistance("target", 3);
 
 	local _Pet_summoned 																				= ConRO:CallPet();
 	local _Pet_assist 																					= ConRO:PetAssist();
@@ -190,7 +190,7 @@ function ConRO.Warlock.Under10Def(_, timeShift, currentSpell, gcd)
 --Conditions
 	local _is_moving 																					= ConRO:PlayerSpeed();
 	local _enemies_in_melee, _target_in_melee															= ConRO:Targets("Melee");
-	local _target_in_10yrds 																			= CheckInteractDistance("target", 3);
+	local _target_in_10yrds 																			= ConRO:CheckInteractDistance("target", 3);
 
 	local _Pet_summoned 																				= ConRO:CallPet();
 	local _Pet_assist 																					= ConRO:PetAssist();
