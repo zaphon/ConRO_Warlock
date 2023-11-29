@@ -587,7 +587,6 @@ function ConRO.Warlock.Demonology(_, timeShift, currentSpell, gcd, tChosen, pvpC
 	local _PowerSiphon, _PowerSiphon_RDY = ConRO:AbilityReady(Ability.PowerSiphon, timeShift);
 	local _ShadowBolt, _ShadowBolt_RDY = ConRO:AbilityReady(Ability.ShadowBolt, timeShift);
 		local _DemonicCalling_BUFF = ConRO:Aura(Buff.DemonicCalling, timeShift);
-	local _SoulStrike, _SoulStrike_RDY = ConRO:AbilityReady(Ability.SoulStrike, timeShift);
 	local _SummonDemonicTyrant, _SummonDemonicTyrant_RDY, _SummonDemonicTyrant_CD = ConRO:AbilityReady(Ability.SummonDemonicTyrant, timeShift);
 	local _SummonFelguard, _SummonFelguard_RDY = ConRO:AbilityReady(Ability.SummonDemon.Felguard, timeShift);
 	local _SummonSoulkeeper, _SummonSoulkeeper_RDY = ConRO:AbilityReady(Ability.SummonSoulkeeper, timeShift);
@@ -703,12 +702,6 @@ function ConRO.Warlock.Demonology(_, timeShift, currentSpell, gcd, tChosen, pvpC
 	if _GrimoireFelguard_RDY and _SoulShards >= 1 and ConRO:FullMode(_GrimoireFelguard) then
 		tinsert(ConRO.SuggestedSpells, _GrimoireFelguard);
 		_GrimoireFelguard_RDY = false;
-	end
-
-	if _SoulStrike_RDY and _SoulShards <= 4 then
-		tinsert(ConRO.SuggestedSpells, _SoulStrike);
-		_SoulStrike_RDY = false;
-		_SoulShards = _SoulShards + 1;
 	end
 
 	if _Doom_RDY and not _Doom_DEBUFF then
