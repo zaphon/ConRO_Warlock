@@ -5,6 +5,10 @@ ConRO.Warlock.CheckPvPTalents = function()
 end
 local ConRO_Warlock, ids = ...;
 
+local GetSpellCount = function(spellID)
+	return C_Spell.GetSpellCastCount(spellID);
+end
+
 function ConRO:EnableRotationModule(mode)
 	mode = mode or 0;
 	self.ModuleOnEnable = ConRO.Warlock.CheckTalents;
@@ -20,13 +24,11 @@ function ConRO:EnableRotationModule(mode)
 			self.NextSpell = ConRO.Warlock.Affliction;
 			self.ToggleDamage();
 			ConROWindow:SetAlpha(ConRO.db.profile.transparencyWindow);
-			ConRONextWindow:SetAlpha(ConRO.db.profile.transparencyWindow);
 			ConRODefenseWindow:SetAlpha(ConRO.db.profile.transparencyWindow);
 		else
 			self.NextSpell = ConRO.Warlock.Disabled;
 			self.ToggleHealer();
 			ConROWindow:SetAlpha(0);
-			ConRONextWindow:SetAlpha(0);
 			ConRODefenseWindow:SetAlpha(0);
 		end
 	end;
@@ -36,13 +38,11 @@ function ConRO:EnableRotationModule(mode)
 			self.NextSpell = ConRO.Warlock.Demonology;
 			self.ToggleDamage();
 			ConROWindow:SetAlpha(ConRO.db.profile.transparencyWindow);
-			ConRONextWindow:SetAlpha(ConRO.db.profile.transparencyWindow);
 			ConRODefenseWindow:SetAlpha(ConRO.db.profile.transparencyWindow);
 		else
 			self.NextSpell = ConRO.Warlock.Disabled;
 			self.ToggleHealer();
 			ConROWindow:SetAlpha(0);
-			ConRONextWindow:SetAlpha(0);
 			ConRODefenseWindow:SetAlpha(0);
 		end
 	end;
@@ -52,13 +52,11 @@ function ConRO:EnableRotationModule(mode)
 			self.NextSpell = ConRO.Warlock.Destruction;
 			self.ToggleDamage();
 			ConROWindow:SetAlpha(ConRO.db.profile.transparencyWindow);
-			ConRONextWindow:SetAlpha(ConRO.db.profile.transparencyWindow);
 			ConRODefenseWindow:SetAlpha(ConRO.db.profile.transparencyWindow);
 		else
 			self.NextSpell = ConRO.Warlock.Disabled;
 			self.ToggleHealer();
 			ConROWindow:SetAlpha(0);
-			ConRONextWindow:SetAlpha(0);
 			ConRODefenseWindow:SetAlpha(0);
 		end
 	end;
@@ -105,44 +103,82 @@ function ConRO.Warlock.Disabled(_, timeShift, currentSpell, gcd, tChosen, pvpCho
 	return nil;
 end
 
-function ConRO.Warlock.Under10(_, timeShift, currentSpell, gcd)
-	wipe(ConRO.SuggestedSpells)
-	local Racial, Ability, Form, Buff, Debuff, PetAbility, PvPTalent, Glyph = ids.Racial, ids.Warlock_Ability, ids.Warlock_Form, ids.Warlock_Buff, ids.Warlock_Debuff, ids.Warlock_PetAbility, ids.Warlock_PvPTalent, ids.Glyph;
 --Info
-	local _Player_Level																					= UnitLevel("player");
-	local _Player_Percent_Health 																		= ConRO:PercentHealth('player');
-	local _is_PvP																						= ConRO:IsPvP();
-	local _in_combat 																					= UnitAffectingCombat('player');
-	local _party_size																					= GetNumGroupMembers();
-
-	local _is_PC																						= UnitPlayerControlled("target");
-	local _is_Enemy 																					= ConRO:TarHostile();
-	local _Target_Health 																				= UnitHealth('target');
-	local _Target_Percent_Health 																		= ConRO:PercentHealth('target');
+local _Player_Level = UnitLevel("player");
+local _Player_Intellect = UnitStat("player", 4);
+local _Player_Percent_Health = ConRO:PercentHealth('player');
+local _is_PvP = ConRO:IsPvP();
+local _in_combat = UnitAffectingCombat('player');
+local _party_size = GetNumGroupMembers();
+local _is_PC = UnitPlayerControlled("target");
+local _is_Enemy = ConRO:TarHostile();
+local _Target_Health = UnitHealth('target');
+local _Target_Percent_Health = ConRO:PercentHealth('target');
+local _can_execute = _Target_Percent_Health <= 20;
 
 --Resources
-	local _Mana, _Mana_Max, _Mana_Percent																= ConRO:PlayerPower('Mana');
-	local _SoulShards																					= ConRO:PlayerPower('SoulShards');
-
---Racials
-	local _ArcanePulse, _ArcanePulse_RDY																= ConRO:AbilityReady(Racial.ArcanePulse, timeShift);
-	local _ArcaneTorrent, _ArcaneTorrent_RDY															= ConRO:AbilityReady(Racial.ArcaneTorrent, timeShift);
-	local _Berserking, _Berserking_RDY																	= ConRO:AbilityReady(Racial.Berserking, timeShift);
-
---Abilities
-	local _Corruption, _Corruption_RDY																	= ConRO:AbilityReady(Ability.Corruption, timeShift);
-		local _Corruption_DEBUFF, _, _Corruption_DUR														= ConRO:TargetAura(Debuff.Corruption, timeShift);
-	local _ShadowBolt, _ShadowBolt_RDY																	= ConRO:AbilityReady(Ability.ShadowBolt, timeShift);
-	local _SummonImp, _SummonImp_RDY																	= ConRO:AbilityReady(Ability.SummonImp, timeShift);
+local _Mana, _Mana_Max, _Mana_Percent = ConRO:PlayerPower('Mana');
+local _SoulShards = ConRO:PlayerPower('SoulShards');
 
 --Conditions
-	local _is_moving 																					= ConRO:PlayerSpeed();
-	local _enemies_in_melee, _target_in_melee															= ConRO:Targets("Melee");
-	local _target_in_10yrds 																			= ConRO:CheckInteractDistance("target", 3);
+local _is_moving = ConRO:PlayerSpeed();
+local _enemies_in_melee, _target_in_melee = ConRO:Targets("Melee");
+local _enemies_in_10yrds, _target_in_10yrds = ConRO:Targets("10");
+local _enemies_in_25yrds, _target_in_25yrds = ConRO:Targets("25");
+local _enemies_in_40yrds, _target_in_40yrds = ConRO:Targets("40");
 
-	local _Pet_summoned 																				= ConRO:CallPet();
-	local _Pet_assist 																					= ConRO:PetAssist();
-	local _Pet_Percent_Health																			= ConRO:PercentHealth('pet');
+local _Pet_summoned = ConRO:CallPet();
+local _Pet_assist = ConRO:PetAssist();
+local _Pet_Percent_Health = ConRO:PercentHealth('pet');
+
+--Racials
+local _ArcanePulse, _ArcanePulse_RDY = _, _;
+local _ArcaneTorrent, _ArcaneTorrent_RDY = _, _;
+local _Berserking, _Berserking_RDY = _, _;
+local _Cannibalize, _Cannibalize_RDY = _, _;
+
+function ConRO:Stats()
+	_Player_Level = UnitLevel("player");
+	_Player_Intellect = UnitStat("player", 4);
+	_Player_Percent_Health = ConRO:PercentHealth('player');
+	_is_PvP = ConRO:IsPvP();
+	_in_combat = UnitAffectingCombat('player');
+	_party_size = GetNumGroupMembers();
+	_is_PC = UnitPlayerControlled("target");
+	_is_Enemy = ConRO:TarHostile();
+	_Target_Health = UnitHealth('target');
+	_Target_Percent_Health = ConRO:PercentHealth('target');
+	_can_execute = _Target_Percent_Health <= 20;
+
+	_Mana, _Mana_Max, _Mana_Percent = ConRO:PlayerPower('Mana');
+	_SoulShards = ConRO:PlayerPower('SoulShards');
+
+	_is_moving = ConRO:PlayerSpeed();
+	_enemies_in_melee, _target_in_melee = ConRO:Targets("Melee");
+	_enemies_in_10yrds, _target_in_10yrds = ConRO:Targets("10");
+	_enemies_in_25yrds, _target_in_25yrds = ConRO:Targets("25");
+	_enemies_in_40yrds, _target_in_40yrds = ConRO:Targets("40");
+
+	_Pet_summoned = ConRO:CallPet();
+	_Pet_assist = ConRO:PetAssist();
+	_Pet_Percent_Health = ConRO:PercentHealth('pet');
+
+	_ArcanePulse, _ArcanePulse_RDY = ConRO:AbilityReady(ids.Racial.ArcanePulse, timeShift);
+	_ArcaneTorrent, _ArcaneTorrent_RDY = ConRO:AbilityReady(ids.Racial.ArcaneTorrent, timeShift);
+	_Berserking, _Berserking_RDY = ConRO:AbilityReady(ids.Racial.Berserking, timeShift);
+	_Cannibalize, _Cannibalize_RDY = ConRO:AbilityReady(ids.Racial.Cannibalize, timeShift);
+end
+
+function ConRO.Warlock.Under10(_, timeShift, currentSpell, gcd)
+	wipe(ConRO.SuggestedSpells);
+	ConRO:Stats();
+	local Ability, Form, Buff, Debuff, PetAbility, PvPTalent = ids.Warlock_Ability, ids.Warlock_Form, ids.Warlock_Buff, ids.Warlock_Debuff, ids.Warlock_PetAbility, ids.Warlock_PvPTalent;
+
+--Abilities
+	local _Corruption, _Corruption_RDY = ConRO:AbilityReady(Ability.Corruption, timeShift);
+		local _Corruption_DEBUFF, _, _Corruption_DUR = ConRO:TargetAura(Debuff.Corruption, timeShift);
+	local _ShadowBolt, _ShadowBolt_RDY = ConRO:AbilityReady(Ability.ShadowBolt, timeShift);
+	local _SummonImp, _SummonImp_RDY = ConRO:AbilityReady(Ability.SummonImp, timeShift);
 
 --Warnings
 	ConRO:Warnings("Summon your demon!", _SummonImp_RDY and not _Pet_summoned);
@@ -159,42 +195,16 @@ return nil;
 end
 
 function ConRO.Warlock.Under10Def(_, timeShift, currentSpell, gcd)
-	wipe(ConRO.SuggestedDefSpells)
-	local Racial, Ability, Form, Buff, Debuff, PetAbility, PvPTalent, Glyph = ids.Racial, ids.Warlock_Ability, ids.Warlock_Form, ids.Warlock_Buff, ids.Warlock_Debuff, ids.Warlock_PetAbility, ids.Warlock_PvPTalent, ids.Glyph;
---Info
-	local _Player_Level																					= UnitLevel("player");
-	local _Player_Percent_Health 																		= ConRO:PercentHealth('player');
-	local _is_PvP																						= ConRO:IsPvP();
-	local _in_combat 																					= UnitAffectingCombat('player');
-	local _party_size																					= GetNumGroupMembers();
-
-	local _is_PC																						= UnitPlayerControlled("target");
-	local _is_Enemy 																					= ConRO:TarHostile();
-	local _Target_Health 																				= UnitHealth('target');
-	local _Target_Percent_Health 																		= ConRO:PercentHealth('target');
-
---Resources
-	local _Mana, _Mana_Max, _Mana_Percent																= ConRO:PlayerPower('Mana');
-	local _SoulShards																					= ConRO:PlayerPower('SoulShards');
-
---Racials
-	local _Cannibalize, _Cannibalize_RDY																= ConRO:AbilityReady(Racial.Cannibalize, timeShift);
+	wipe(ConRO.SuggestedDefSpells);
+	ConRO:Stats();
+	local Ability, Form, Buff, Debuff, PetAbility, PvPTalent = ids.Warlock_Ability, ids.Warlock_Form, ids.Warlock_Buff, ids.Warlock_Debuff, ids.Warlock_PetAbility, ids.Warlock_PvPTalent;
 
 --Abilities
-	local _CreateHealthstone, _CreateHealthstone_RDY													= ConRO:AbilityReady(Ability.CreateHealthstone, timeShift);
-		local _Healthstone, _Healthstone_RDY, _, _, _Healthstone_COUNT										= ConRO:ItemReady(Ability.Healthstone, timeShift);
-	local _DrainLife, _DrainLife_RDY																	= ConRO:AbilityReady(Ability.DrainLife, timeShift);
-	local _HealthFunnel, _HealthFunnel_RDY																= ConRO:AbilityReady(Ability.HealthFunnel, timeShift);
-	local _UnendingResolve, _UnendingResolve_RDY 														= ConRO:AbilityReady(Ability.UnendingResolve, timeShift);
-
---Conditions
-	local _is_moving 																					= ConRO:PlayerSpeed();
-	local _enemies_in_melee, _target_in_melee															= ConRO:Targets("Melee");
-	local _target_in_10yrds 																			= ConRO:CheckInteractDistance("target", 3);
-
-	local _Pet_summoned 																				= ConRO:CallPet();
-	local _Pet_assist 																					= ConRO:PetAssist();
-	local _Pet_Percent_Health																			= ConRO:PercentHealth('pet');
+	local _CreateHealthstone, _CreateHealthstone_RDY = ConRO:AbilityReady(Ability.CreateHealthstone, timeShift);
+		local _Healthstone, _Healthstone_RDY, _, _, _Healthstone_COUNT = ConRO:ItemReady(Ability.Healthstone, timeShift);
+	local _DrainLife, _DrainLife_RDY = ConRO:AbilityReady(Ability.DrainLife, timeShift);
+	local _HealthFunnel, _HealthFunnel_RDY = ConRO:AbilityReady(Ability.HealthFunnel, timeShift);
+	local _UnendingResolve, _UnendingResolve_RDY = ConRO:AbilityReady(Ability.UnendingResolve, timeShift);
 
 --Rotations	
 	if _CreateHealthstone_RDY and not _in_combat and _Healthstone_COUNT <= 0 then
@@ -221,27 +231,8 @@ end
 
 function ConRO.Warlock.Affliction(_, timeShift, currentSpell, gcd, tChosen, pvpChosen)
 	wipe(ConRO.SuggestedSpells)
-	local Racial, Ability, Form, Buff, Debuff, PetAbility, PvPTalent, Glyph = ids.Racial, ids.Aff_Ability, ids.Aff_Form, ids.Aff_Buff, ids.Aff_Debuff, ids.Aff_PetAbility, ids.Aff_PvPTalent, ids.Glyph;
---Info
-	local _Player_Level = UnitLevel("player");
-	local _Player_Percent_Health = ConRO:PercentHealth('player');
-	local _is_PvP = ConRO:IsPvP();
-	local _in_combat = UnitAffectingCombat('player');
-	local _party_size = GetNumGroupMembers();
-
-	local _is_PC = UnitPlayerControlled("target");
-	local _is_Enemy = ConRO:TarHostile();
-	local _Target_Health = UnitHealth('target');
-	local _Target_Percent_Health = ConRO:PercentHealth('target');
-
---Resources
-	local _Mana, _Mana_Max, _Mana_Percent = ConRO:PlayerPower('Mana');
-	local _SoulShards = ConRO:PlayerPower('SoulShards');
-
---Racials
-	local _ArcanePulse, _ArcanePulse_RDY = ConRO:AbilityReady(Racial.ArcanePulse, timeShift);
-	local _Berserking, _Berserking_RDY = ConRO:AbilityReady(Racial.Berserking, timeShift);
-	local _ArcaneTorrent, _ArcaneTorrent_RDY = ConRO:AbilityReady(Racial.ArcaneTorrent, timeShift);
+	ConRO:Stats();
+	local Ability, Form, Buff, Debuff, PetAbility, PvPTalent = ids.Aff_Ability, ids.Aff_Form, ids.Aff_Buff, ids.Aff_Debuff, ids.Aff_PetAbility, ids.Aff_PvPTalent;
 
 --Abilities
 	local _Agony, _Agony_RDY = ConRO:AbilityReady(Ability.Agony, timeShift);
@@ -282,15 +273,6 @@ function ConRO.Warlock.Affliction(_, timeShift, currentSpell, gcd, tChosen, pvpC
 	local _SpellLock, _SpellLock_RDY = ConRO:AbilityReady(PetAbility.SpellLock, timeShift, 'pet');
 	local _DevourMagic, _DevourMagic_RDY = ConRO:AbilityReady(PetAbility.DevourMagic, timeShift, 'pet');
 
---Conditions
-	local _is_moving = ConRO:PlayerSpeed();
-	local _enemies_in_melee, _target_in_melee = ConRO:Targets("Melee");
-	local _enemies_in_10yrds, _target_in_10yrds = ConRO:Targets("10");
-	local _enemies_in_40yrds, _target_in_40yrds = ConRO:Targets("40");
-
-	local _Pet_summoned = ConRO:CallPet();
-	local _Pet_assist = ConRO:PetAssist();
-	local _Pet_Percent_Health = ConRO:PercentHealth('pet');
 	local _Void_out	= IsSpellKnown(PetAbility.ThreateningPresence.spellID, true);
 
 	if tChosen[Ability.AbsoluteCorruption.talentID] then
@@ -325,14 +307,10 @@ function ConRO.Warlock.Affliction(_, timeShift, currentSpell, gcd, tChosen, pvpC
 	ConRO:AbilityBurst(_SummonDarkglare, _SummonDarkglare_RDY and _Agony_DEBUFF and _Corruption_DEBUFF and _UnstableAffliction_DEBUFF and (not tChosen[Ability.SiphonLife.talentID] or (tChosen[Ability.SiphonLife.talentID] and _SiphonLife_DEBUFF)) and (not tChosen[Ability.PhantomSingularity.talentID] or (tChosen[Ability.PhantomSingularity.talentID] and _PhantomSingularity_DEBUFF)) and (not tChosen[Ability.VileTaint.talentID] or (tChosen[Ability.VileTaint.talentID] and _VileTaint_DEBUFF)) and ConRO:BurstMode(_SummonDarkglare));
 	ConRO:AbilityBurst(_PhantomSingularity, _PhantomSingularity_RDY and _Agony_DEBUFF and _Corruption_DEBUFF and _UnstableAffliction_DEBUFF and (not tChosen[Ability.SiphonLife.talentID] or (tChosen[Ability.SiphonLife.talentID] and _SiphonLife_DEBUFF)) and ConRO:BurstMode(_PhantomSingularity));
 	ConRO:AbilityBurst(_SoulRot, _SoulRot_RDY and currentSpell ~= _SoulRot and _Agony_DEBUFF and _Corruption_DEBUFF and _UnstableAffliction_DEBUFF and (not tChosen[Ability.SiphonLife.talentID] or (tChosen[Ability.SiphonLife.talentID] and _SiphonLife_DEBUFF)) and ConRO:BurstMode(_SoulRot));
+	ConRO:AbilityBurst(_GrimoireofSacrifice, _GrimoireofSacrifice_RDY and not _GrimoireofSacrifice_BUFF);
 
 --Warnings
 	ConRO:Warnings("Summon your demon!", not tChosen[Ability.GrimoireofSacrifice.talentID] and not _Pet_summoned);
-	ConRO:Warnings("Call your pet to sacrifice!", tChosen[Ability.GrimoireofSacrifice.talentID] and not _GrimoireofSacrifice_BUFF and not _Pet_summoned);
-
-	if _GrimoireofSacrifice_RDY and not _GrimoireofSacrifice_BUFF and not _Void_out then
-		tinsert(ConRO.SuggestedSpells, _GrimoireofSacrifice);
-	end
 
 --Rotations	
 	if _DrainLife_RDY and _InevitableDemise_COUNT == 50 and _InevitableDemise_DUR <= 3 then
@@ -473,26 +451,9 @@ function ConRO.Warlock.Affliction(_, timeShift, currentSpell, gcd, tChosen, pvpC
 end
 
 function ConRO.Warlock.AfflictionDef(_, timeShift, currentSpell, gcd, tChosen, pvpChosen)
-	wipe(ConRO.SuggestedDefSpells)
-	local Racial, Ability, Form, Buff, Debuff, PetAbility, PvPTalent, Glyph = ids.Racial, ids.Aff_Ability, ids.Aff_Form, ids.Aff_Buff, ids.Aff_Debuff, ids.Aff_PetAbility, ids.Aff_PvPTalent, ids.Glyph;
---Info
-	local _Player_Level = UnitLevel("player");
-	local _Player_Percent_Health = ConRO:PercentHealth('player');
-	local _is_PvP = ConRO:IsPvP();
-	local _in_combat = UnitAffectingCombat('player');
-	local _party_size = GetNumGroupMembers();
-
-	local _is_PC = UnitPlayerControlled("target");
-	local _is_Enemy = ConRO:TarHostile();
-	local _Target_Health = UnitHealth('target');
-	local _Target_Percent_Health = ConRO:PercentHealth('target');
-
---Resources
-	local _Mana, _Mana_Max, _Mana_Percent = ConRO:PlayerPower('Mana');
-	local _SoulShards = ConRO:PlayerPower('SoulShards');
-
---Racials
-	local _Cannibalize, _Cannibalize_RDY = ConRO:AbilityReady(Racial.Cannibalize, timeShift);
+	wipe(ConRO.SuggestedDefSpells);
+	ConRO:Stats();
+	local Ability, Form, Buff, Debuff, PetAbility, PvPTalent = ids.Aff_Ability, ids.Aff_Form, ids.Aff_Buff, ids.Aff_Debuff, ids.Aff_PetAbility, ids.Aff_PvPTalent;
 
 --Abilities
 	local _CreateHealthstone, _CreateHealthstone_RDY = ConRO:AbilityReady(Ability.Healthstone.Create, timeShift);
@@ -504,15 +465,6 @@ function ConRO.Warlock.AfflictionDef(_, timeShift, currentSpell, gcd, tChosen, p
 	local _DarkPact, _DarkPact_RDY = ConRO:AbilityReady(Ability.DarkPact, timeShift);
 	local _MortalCoil, _MortalCoil_RDY = ConRO:AbilityReady(Ability.MortalCoil, timeShift);
 
---Conditions
-	local _is_moving = ConRO:PlayerSpeed();
-	local _enemies_in_melee, _target_in_melee = ConRO:Targets("Melee");
-	local _enemies_in_10yrds, _target_in_10yrds = ConRO:Targets("10");
-	local _enemies_in_40yrds, _target_in_40yrds = ConRO:Targets("40");
-
-	local _Pet_summoned = ConRO:CallPet();
-	local _Pet_assist = ConRO:PetAssist();
-	local _Pet_Percent_Health = ConRO:PercentHealth('pet');
 	local _Void_out = IsSpellKnown(PetAbility.ThreateningPresence.spellID, true);
 
 --Rotations
@@ -547,28 +499,9 @@ function ConRO.Warlock.AfflictionDef(_, timeShift, currentSpell, gcd, tChosen, p
 end
 
 function ConRO.Warlock.Demonology(_, timeShift, currentSpell, gcd, tChosen, pvpChosen)
-	wipe(ConRO.SuggestedSpells)
-	local Racial, Ability, Form, Buff, Debuff, PetAbility, PvPTalent, Glyph = ids.Racial, ids.Demo_Ability, ids.Demo_Form, ids.Demo_Buff, ids.Demo_Debuff, ids.Demo_PetAbility, ids.Demo_PvPTalent, ids.Glyph;
---Info
-	local _Player_Level = UnitLevel("player");
-	local _Player_Percent_Health = ConRO:PercentHealth('player');
-	local _is_PvP = ConRO:IsPvP();
-	local _in_combat = UnitAffectingCombat('player');
-	local _party_size = GetNumGroupMembers();
-
-	local _is_PC = UnitPlayerControlled("target");
-	local _is_Enemy = ConRO:TarHostile();
-	local _Target_Health = UnitHealth('target');
-	local _Target_Percent_Health = ConRO:PercentHealth('target');
-
---Resources
-	local _Mana, _Mana_Max, _Mana_Percent = ConRO:PlayerPower('Mana');
-	local _SoulShards = ConRO:PlayerPower('SoulShards');
-
---Racials
-	local _ArcanePulse, _ArcanePulse_RDY = ConRO:AbilityReady(Racial.ArcanePulse, timeShift);
-	local _Berserking, _Berserking_RDY = ConRO:AbilityReady(Racial.Berserking, timeShift);
-	local _ArcaneTorrent, _ArcaneTorrent_RDY = ConRO:AbilityReady(Racial.ArcaneTorrent, timeShift);
+	wipe(ConRO.SuggestedSpells);
+	ConRO:Stats();
+	local Ability, Form, Buff, Debuff, PetAbility, PvPTalent = ids.Demo_Ability, ids.Demo_Form, ids.Demo_Buff, ids.Demo_Debuff, ids.Demo_PetAbility, ids.Demo_PvPTalent;
 
 --Abilities
 	local _BilescourgeBombers, _BilescourgeBombers_RDY = ConRO:AbilityReady(Ability.BilescourgeBombers, timeShift);
@@ -594,23 +527,14 @@ function ConRO.Warlock.Demonology(_, timeShift, currentSpell, gcd, tChosen, pvpC
 	local _SummonVilefiend, _SummonVilefiend_RDY, _SummonVilefiend_CD = ConRO:AbilityReady(Ability.SummonVilefiend, timeShift);
 
 	local _AxeToss, _AxeToss_RDY = ConRO:AbilityReady(PetAbility.AxeToss, timeShift, 'pet');
+	local _AxeTossCD = ConRO:AbilityReady(Ability.CommandDemon.AxeToss, timeShift);
 	local _DevourMagic, _DevourMagic_RDY = ConRO:AbilityReady(PetAbility.DevourMagic, timeShift, 'pet');
 	local _Felstorm, _Felstorm_RDY, _Felstorm_CD = ConRO:AbilityReady(PetAbility.Felstorm, timeShift, 'pet');
-	local _SpellLockCD = ConRO:AbilityReady(Ability.CommandDemon.SpellLock, timeShift);
+	local _SoulStrike, _SoulStrike_RDY = ConRO:AbilityReady(PetAbility.SoulStrike, timeShift, 'pet');
 	local _SpellLock, _SpellLock_RDY = ConRO:AbilityReady(PetAbility.SpellLock, timeShift, 'pet');
+	local _SpellLockCD = ConRO:AbilityReady(Ability.CommandDemon.SpellLock, timeShift);
 
 --Conditions
-	local _is_moving = ConRO:PlayerSpeed();
-	local _enemies_in_melee, _target_in_melee = ConRO:Targets("Melee");
-	local _enemies_in_10yrds, _target_in_10yrds = ConRO:Targets("10");
-	local _enemies_in_40yrds, _target_in_40yrds = ConRO:Targets("40");
-
-	local _Pet_summoned = ConRO:CallPet();
-	local _Pet_assist = ConRO:PetAssist();
-	local _Pet_Percent_Health = ConRO:PercentHealth('pet');
-	local _Void_out = IsSpellKnown(ids.Demo_PetAbility.ThreateningPresence.spellID, true);
-	local _Felhunter_out = IsSpellKnown(ids.Demo_PetAbility.ShadowBite.spellID, true);
-
 	local _CallDreadstalkers_COST = 2;
 
 	if _DemonicCalling_BUFF then
@@ -632,12 +556,15 @@ function ConRO.Warlock.Demonology(_, timeShift, currentSpell, gcd, tChosen, pvpC
 	end
 
 --Indicators
+	ConRO:AbilityInterrupt(_AxeToss, _AxeToss_RDY and ConRO:Interrupt());
+	ConRO:AbilityInterrupt(_AxeTossCD, _AxeToss_RDY and ConRO:Interrupt());
 	ConRO:AbilityInterrupt(_SpellLock, _SpellLock_RDY and ConRO:Interrupt());
 	ConRO:AbilityInterrupt(_SpellLockCD, _SpellLock_RDY and ConRO:Interrupt());
 	ConRO:AbilityPurge(_DevourMagic, _DevourMagic_RDY and ConRO:Purgable());
 	ConRO:AbilityPurge(_ArcaneTorrent, _ArcaneTorrent_RDY and _target_in_melee and ConRO:Purgable());
 
 	ConRO:AbilityBurst(_DemonicStrength, _DemonicStrength_RDY and _Felstorm_CD <= 25 and ConRO:BurstMode(_DemonicStrength));
+	ConRO:AbilityBurst(_SoulStrike, _SoulStrike_RDY and _SoulShards <= 4);
 	ConRO:AbilityBurst(_GrimoireFelguard, _GrimoireFelguard_RDY and _SoulShards >= 1 and ConRO:BurstMode(_GrimoireFelguard));
 	ConRO:AbilityBurst(_NetherPortal, _NetherPortal_RDY and _SummonDemonicTyrant_RDY and _CallDreadstalkers_RDY and (svilefiend or not tChosen[Ability.SummonVilefiend.talentID]) and _SoulShards >= 1 and currentSpell ~= _NetherPortal and ConRO:BurstMode(_NetherPortal));
 	ConRO:AbilityBurst(_SummonDemonicTyrant, _SummonDemonicTyrant_RDY and currentSpell ~= _SummonDemonicTyrant and _CallDreadstalkers_CD >= 10 and ConRO:BurstMode(_SummonDemonicTyrant));
@@ -647,28 +574,89 @@ function ConRO.Warlock.Demonology(_, timeShift, currentSpell, gcd, tChosen, pvpC
 	ConRO:Warnings("Summon your Felguard!", not _Pet_summoned);
 
 --Rotations
-	if not _in_combat then
-		if _PowerSiphon_RDY and _DemonicCore_COUNT <= 2 and ConRO:ImpsOut() >= 2 then
-			tinsert(ConRO.SuggestedSpells, _PowerSiphon);
-			_PowerSiphon_RDY = false;
-			_DemonicCore_COUNT = _DemonicCore_COUNT + 2;
+	for i = 1, 2, 1 do
+		if not _in_combat then
+			if _PowerSiphon_RDY and _DemonicCore_COUNT <= 2 and ConRO:ImpsOut() >= 2 then
+				tinsert(ConRO.SuggestedSpells, _PowerSiphon);
+				_PowerSiphon_RDY = false;
+				_DemonicCore_COUNT = _DemonicCore_COUNT + 2;
+			end
+
+			if _Demonbolt_RDY and currentSpell ~= _Demonbolt and currentSpell ~= _ShadowBolt and _DemonicCore_COUNT <= 0 then
+				tinsert(ConRO.SuggestedSpells, _Demonbolt);
+				_Demonbolt_RDY = false;
+				_SoulShards = _SoulShards + 2;
+			end
+
+			if _ShadowBolt_RDY and _SoulShards <= 4 and currentSpell ~= _Demonbolt and currentSpell ~= _ShadowBolt then
+				tinsert(ConRO.SuggestedSpells, _ShadowBolt);
+				_ShadowBolt_RDY = false;
+				_SoulShards = _SoulShards + 1;
+			end
+
+			if _Doom_RDY and not _Doom_DEBUFF then
+				tinsert(ConRO.SuggestedSpells, _Doom);
+				_Doom_RDY = false;
+			end
+
+			if _NetherPortal_RDY and currentSpell ~= _NetherPortal and ConRO:FullMode(_NetherPortal) then
+				tinsert(ConRO.SuggestedSpells, _NetherPortal);
+				_NetherPortal_RDY = false;
+				_SoulShards = _SoulShards - 1;
+			end
+
+			if _CallDreadstalkers_RDY and _SoulShards >= _CallDreadstalkers_COST and currentSpell ~= _CallDreadstalkers then
+				tinsert(ConRO.SuggestedSpells, _CallDreadstalkers);
+				_CallDreadstalkers_RDY = false;
+				_SoulShards = _SoulShards - _CallDreadstalkers_COST;
+			end
 		end
 
-		if _Demonbolt_RDY and currentSpell ~= _Demonbolt and currentSpell ~= _ShadowBolt and _DemonicCore_COUNT <= 0 then
+		if _Demonbolt_RDY and _DemonicCore_DUR <= 2 and _DemonicCore_COUNT >= 1 then
 			tinsert(ConRO.SuggestedSpells, _Demonbolt);
-			_Demonbolt_RDY = false;
-			_SoulShards = _SoulShards + 2;
-		end
-
-		if _ShadowBolt_RDY and _SoulShards <= 4 and currentSpell ~= _Demonbolt and currentSpell ~= _ShadowBolt then
-			tinsert(ConRO.SuggestedSpells, _ShadowBolt);
-			_ShadowBolt_RDY = false;
-			_SoulShards = _SoulShards + 1;
+			_DemonicCore_COUNT = _DemonicCore_COUNT - 1;
 		end
 
 		if _NetherPortal_RDY and currentSpell ~= _NetherPortal and ConRO:FullMode(_NetherPortal) then
 			tinsert(ConRO.SuggestedSpells, _NetherPortal);
 			_NetherPortal_RDY = false;
+			_SoulShards = _SoulShards - 1;
+		end
+
+		if not tChosen[Ability.GrimoireFelguard.talentID] or (tChosen[Ability.GrimoireFelguard.talentID] and _GrimoireFelguard_CD > 0) then
+			if not tChosen[Ability.SummonVilefiend.talentID] or (tChosen[Ability.SummonVilefiend.talentID] and _SummonVilefiend_CD > 0) then
+				if _SummonDemonicTyrant_RDY and _CallDreadstalkers_CD > 0 and ConRO:ImpsOut() >= 3 and currentSpell ~= _SummonDemonicTyrant and ConRO:FullMode(_SummonDemonicTyrant) then
+					tinsert(ConRO.SuggestedSpells, _SummonDemonicTyrant);
+					_SummonDemonicTyrant_RDY = false;
+				end
+			end
+		end
+
+		if _GrimoireFelguard_RDY and _SoulShards >= 1 and _SummonDemonicTyrant_RDY and ConRO:FullMode(_GrimoireFelguard) then
+			tinsert(ConRO.SuggestedSpells, _GrimoireFelguard);
+			_GrimoireFelguard_RDY = false;
+			_SoulShards = _SoulShards - 1;
+		end
+
+		if _SummonVilefiend_RDY and _SoulShards >= 1 and (_SummonDemonicTyrant_RDY or _SummonDemonicTyrant_CD >= 35) and currentSpell ~= _SummonVilefiend and ((ConRO_AutoButton:IsVisible() and _enemies_in_40yrds <= 1) or ConRO_SingleButton:IsVisible() or tChosen[Ability.FelInvocation.talentID]) and ConRO:FullMode(_SummonVilefiend) then
+			tinsert(ConRO.SuggestedSpells, _SummonVilefiend);
+			_SoulShards = _SoulShards - 1;
+			_SummonVilefiend_RDY = false;
+		end
+
+		if _DemonicStrength_RDY and _Felstorm_CD <= 25 and ConRO:FullMode(_DemonicStrength) then
+			tinsert(ConRO.SuggestedSpells, _DemonicStrength);
+			_DemonicStrength_RDY = false;
+		end
+
+		if _Guillotine_RDY and ConRO:FullMode(_Guillotine) then
+			tinsert(ConRO.SuggestedSpells, _Guillotine);
+			_Guillotine_RDY = false;
+		end
+
+		if _BilescourgeBombers_RDY then
+			tinsert(ConRO.SuggestedSpells, _BilescourgeBombers);
+			_BilescourgeBombers_RDY = false;
 		end
 
 		if _CallDreadstalkers_RDY and _SoulShards >= _CallDreadstalkers_COST and currentSpell ~= _CallDreadstalkers then
@@ -676,119 +664,56 @@ function ConRO.Warlock.Demonology(_, timeShift, currentSpell, gcd, tChosen, pvpC
 			_CallDreadstalkers_RDY = false;
 			_SoulShards = _SoulShards - _CallDreadstalkers_COST;
 		end
-	end
 
-	if _Demonbolt_RDY and _DemonicCore_DUR <= 2 and _DemonicCore_COUNT >= 1 then
-		tinsert(ConRO.SuggestedSpells, _Demonbolt);
-		_DemonicCore_COUNT = _DemonicCore_COUNT - 1;
-	end
-
-	if _NetherPortal_RDY and currentSpell ~= _NetherPortal and ConRO:FullMode(_NetherPortal) then
-		tinsert(ConRO.SuggestedSpells, _NetherPortal);
-		_NetherPortal_RDY = false;
-	end
-
-	if _DemonicStrength_RDY and _Felstorm_CD <= 25 and ConRO:FullMode(_DemonicStrength) then
-		tinsert(ConRO.SuggestedSpells, _DemonicStrength);
-		_DemonicStrength_RDY = false;
-	end
-
-	if _SummonVilefiend_RDY and _SoulShards >= 1 and (_SummonDemonicTyrant_RDY or _SummonDemonicTyrant_CD >= 40) and currentSpell ~= _SummonVilefiend and ConRO:FullMode(_SummonVilefiend) then
-		tinsert(ConRO.SuggestedSpells, _SummonVilefiend);
-		_SoulShards = _SoulShards - 1;
-		_SummonVilefiend_RDY = false;
-	end
-
-	if _GrimoireFelguard_RDY and _SoulShards >= 1 and ConRO:FullMode(_GrimoireFelguard) then
-		tinsert(ConRO.SuggestedSpells, _GrimoireFelguard);
-		_GrimoireFelguard_RDY = false;
-	end
-
-	if _Doom_RDY and not _Doom_DEBUFF then
-		tinsert(ConRO.SuggestedSpells, _Doom);
-		_Doom_RDY = false;
-	end
-
-	if _Guillotine_RDY and ConRO:FullMode(_Guillotine) then
-		tinsert(ConRO.SuggestedSpells, _Guillotine);
-		_Guillotine_RDY = false;
-	end
-
-	if _SummonSoulkeeper_RDY and _SummonSoulkeeper_Count >= 10 and (ConRO_AutoButton:IsVisible() and _enemies_in_40yrds >= 2) then
-		tinsert(ConRO.SuggestedSpells, _SummonSoulkeeper);
-		__SummonSoulkeeper_Count = 0;
-	end
-
-	if _BilescourgeBombers_RDY and _SoulShards >= 2 and ConRO_AutoButton:IsVisible() and _enemies_in_40yrds >= 3 then
-		tinsert(ConRO.SuggestedSpells, _BilescourgeBombers);
-		_BilescourgeBombers_RDY = false;
-	end
-
-	if _PowerSiphon_RDY and _DemonicCore_COUNT <= 2 and ConRO:ImpsOut() >= 2 then
-		tinsert(ConRO.SuggestedSpells, _PowerSiphon);
-		_PowerSiphon_RDY = false;
-		_DemonicCore_COUNT = _DemonicCore_COUNT + 2;
-	end
-
-	if _CallDreadstalkers_RDY and _SoulShards >= _CallDreadstalkers_COST and currentSpell ~= _CallDreadstalkers then
-		tinsert(ConRO.SuggestedSpells, _CallDreadstalkers);
-		_CallDreadstalkers_RDY = false;
-		_SoulShards = _SoulShards - _CallDreadstalkers_COST;
-	end
-
-	if _HandofGuldan_RDY and _SoulShards >= 3 and currentSpell ~= _HandofGuldan then
-		tinsert(ConRO.SuggestedSpells, _HandofGuldan);
-		_SoulShards = _SoulShards - 3;
-	end
-
-	if _Implosion_RDY and ConRO:ImpsOut() >= 6 and (ConRO_AutoButton:IsVisible() and _enemies_in_40yrds >= 2) then
-		tinsert(ConRO.SuggestedSpells, _Implosion);
-		_Implosion_RDY = false;
-	end
-
-	if not tChosen[Ability.GrimoireFelguard.talentID] or (tChosen[Ability.GrimoireFelguard.talentID] and _GrimoireFelguard_CD > 0) then
-		if not tChosen[Ability.SummonVilefiend.talentID] or (tChosen[Ability.SummonVilefiend.talentID] and _SummonVilefiend_CD > 0) then
-			if _SummonDemonicTyrant_RDY and _CallDreadstalkers_CD > 0 and ConRO:ImpsOut() >= 3 and currentSpell ~= _SummonDemonicTyrant and ConRO:FullMode(_SummonDemonicTyrant) then
-				tinsert(ConRO.SuggestedSpells, _SummonDemonicTyrant);
-				_SummonDemonicTyrant_RDY = false;
-			end
+		if _HandofGuldan_RDY and _SoulShards >= 4 and currentSpell ~= _HandofGuldan then
+			tinsert(ConRO.SuggestedSpells, _HandofGuldan);
+			_SoulShards = _SoulShards - 3;
 		end
-	end
 
-	if _Demonbolt_RDY and _DemonicCore_COUNT >= 1 and _SoulShards <= 3 then
-		tinsert(ConRO.SuggestedSpells, _Demonbolt);
-		_SoulShards = _SoulShards + 2;
-		_DemonicCore_COUNT = _DemonicCore_COUNT - 1;
-	end
+		if _SummonSoulkeeper_RDY and _SummonSoulkeeper_Count >= 10 and ((ConRO_AutoButton:IsVisible() and _enemies_in_40yrds >= 2) or ConRO_AoEButton:IsVisible()) then
+			tinsert(ConRO.SuggestedSpells, _SummonSoulkeeper);
+			__SummonSoulkeeper_Count = 0;
+		end
 
-	if _ShadowBolt_RDY and _SoulShards <= 4 and currentSpell ~= _ShadowBolt then
-		tinsert(ConRO.SuggestedSpells, _ShadowBolt);
-		_SoulShards = _SoulShards + 1;
+		if _Implosion_RDY and ((ConRO:ImpsOut() >= 6 and _DemonicCore_COUNT <= 0) or ConRO:ImpsOut() >= 9) and ((ConRO_AutoButton:IsVisible() and _enemies_in_40yrds >= 2) or ConRO_AoEButton:IsVisible()) then
+			tinsert(ConRO.SuggestedSpells, _Implosion);
+			_Implosion_RDY = false;
+		end
+
+		if _Doom_RDY and not _Doom_DEBUFF and ((ConRO_AutoButton:IsVisible() and _enemies_in_40yrds <= 1) or ConRO_SingleButton:IsVisible()) then
+			tinsert(ConRO.SuggestedSpells, _Doom);
+			_Doom_RDY = false;
+		end
+
+		if _Demonbolt_RDY and _DemonicCore_COUNT >= 2 and _SoulShards <= 3 then
+			tinsert(ConRO.SuggestedSpells, _Demonbolt);
+			_SoulShards = _SoulShards + 2;
+			_DemonicCore_COUNT = _DemonicCore_COUNT - 1;
+		end
+
+		if _PowerSiphon_RDY and _DemonicCore_COUNT <= 2 and ConRO:ImpsOut() >= 2 then
+			tinsert(ConRO.SuggestedSpells, _PowerSiphon);
+			_PowerSiphon_RDY = false;
+			_DemonicCore_COUNT = _DemonicCore_COUNT + 2;
+		end
+
+		if _HandofGuldan_RDY and _SoulShards >= 3 and currentSpell ~= _HandofGuldan then
+			tinsert(ConRO.SuggestedSpells, _HandofGuldan);
+			_SoulShards = _SoulShards - 3;
+		end
+
+		if _ShadowBolt_RDY and _SoulShards <= 4 and currentSpell ~= _ShadowBolt then
+			tinsert(ConRO.SuggestedSpells, _ShadowBolt);
+			_SoulShards = _SoulShards + 1;
+		end
 	end
 	return nil;
 end
 
 function ConRO.Warlock.DemonologyDef(_, timeShift, currentSpell, gcd, tChosen, pvpChosen)
-	wipe(ConRO.SuggestedDefSpells)
-	local Racial, Ability, Form, Buff, Debuff, PetAbility, PvPTalent, Glyph = ids.Racial, ids.Demo_Ability, ids.Demo_Form, ids.Demo_Buff, ids.Demo_Debuff, ids.Demo_PetAbility, ids.Demo_PvPTalent, ids.Glyph;
---Info
-	local _Player_Level = UnitLevel("player");
-	local _Player_Percent_Health = ConRO:PercentHealth('player');
-	local _is_PvP = ConRO:IsPvP();
-	local _in_combat = UnitAffectingCombat('player');
-	local _party_size = GetNumGroupMembers();
-
-	local _is_PC = UnitPlayerControlled("target");
-	local _is_Enemy = ConRO:TarHostile();
-	local _Target_Health = UnitHealth('target');
-	local _Target_Percent_Health = ConRO:PercentHealth('target');
-
---Resources
-	local _Mana, _Mana_Max, _Mana_Percent = ConRO:PlayerPower('Mana');
-	local _SoulShards = ConRO:PlayerPower('SoulShards');
-
---Racials
-	local _Cannibalize, _Cannibalize_RDY = ConRO:AbilityReady(Racial.Cannibalize, timeShift);
+	wipe(ConRO.SuggestedDefSpells);
+	ConRO:Stats();
+	local Ability, Form, Buff, Debuff, PetAbility, PvPTalent = ids.Demo_Ability, ids.Demo_Form, ids.Demo_Buff, ids.Demo_Debuff, ids.Demo_PetAbility, ids.Demo_PvPTalent;
 
 --Abilities
 	local _CreateHealthstone, _CreateHealthstone_RDY = ConRO:AbilityReady(Ability.Healthstone.Create, timeShift);
@@ -799,17 +724,6 @@ function ConRO.Warlock.DemonologyDef(_, timeShift, currentSpell, gcd, tChosen, p
 
 	local _DarkPact, _DarkPact_RDY = ConRO:AbilityReady(Ability.DarkPact, timeShift);
 	local _MortalCoil, _MortalCoil_RDY = ConRO:AbilityReady(Ability.MortalCoil, timeShift);
-
---Conditions
-	local _is_moving = ConRO:PlayerSpeed();
-	local _enemies_in_melee, _target_in_melee = ConRO:Targets("Melee");
-	local _enemies_in_10yrds, _target_in_10yrds = ConRO:Targets("10");
-	local _enemies_in_40yrds, _target_in_40yrds = ConRO:Targets("40");
-
-	local _Pet_summoned = ConRO:CallPet();
-	local _Pet_assist = ConRO:PetAssist();
-	local _Pet_Percent_Health = ConRO:PercentHealth('pet');
-	local _Void_out = IsSpellKnown(PetAbility.ThreateningPresence.spellID, true);
 
 --Rotations	
 	if _CreateHealthstone_RDY and not _in_combat and _Healthstone_COUNT <= 0 then
@@ -843,42 +757,22 @@ function ConRO.Warlock.DemonologyDef(_, timeShift, currentSpell, gcd, tChosen, p
 end
 
 function ConRO.Warlock.Destruction(_, timeShift, currentSpell, gcd, tChosen, pvpChosen)
-	wipe(ConRO.SuggestedSpells)
-	local Racial, Ability, Form, Buff, Debuff, PetAbility, PvPTalent, Glyph = ids.Racial, ids.Dest_Ability, ids.Dest_Form, ids.Dest_Buff, ids.Dest_Debuff, ids.Dest_PetAbility, ids.Dest_PvPTalent, ids.Glyph;
---Info
-	local _Player_Level = UnitLevel("player");
-	local _Player_Percent_Health = ConRO:PercentHealth('player');
-	local _is_PvP = ConRO:IsPvP();
-	local _in_combat = UnitAffectingCombat('player');
-	local _party_size = GetNumGroupMembers();
-
-	local _is_PC = UnitPlayerControlled("target");
-	local _is_Enemy = ConRO:TarHostile();
-	local _Target_Health = UnitHealth('target');
-	local _Target_Percent_Health = ConRO:PercentHealth('target');
-
---Resources
-	local _Mana, _Mana_Max, _Mana_Percent = ConRO:PlayerPower('Mana');
-	local _SoulShards = ConRO:PlayerPower('SoulShards');
-
---Racials
-	local _ArcanePulse, _ArcanePulse_RDY = ConRO:AbilityReady(Racial.ArcanePulse, timeShift);
-	local _Berserking, _Berserking_RDY = ConRO:AbilityReady(Racial.Berserking, timeShift);
-	local _ArcaneTorrent, _ArcaneTorrent_RDY = ConRO:AbilityReady(Racial.ArcaneTorrent, timeShift);
+	wipe(ConRO.SuggestedSpells);
+	ConRO:Stats();
+	local Ability, Form, Buff, Debuff, PetAbility, PvPTalent = ids.Dest_Ability, ids.Dest_Form, ids.Dest_Buff, ids.Dest_Debuff, ids.Dest_PetAbility, ids.Dest_PvPTalent;
 
 --Abilities	
 	local _Cataclysm, _Cataclysm_RDY = ConRO:AbilityReady(Ability.Cataclysm, timeShift);
 	local _ChannelDemonfire, _ChannelDemonfire_RDY = ConRO:AbilityReady(Ability.ChannelDemonfire, timeShift);
 	local _ChaosBolt, _ChaosBolt_RDY = ConRO:AbilityReady(Ability.ChaosBolt, timeShift);
 		local _Eradication_DEBUFF =ConRO:TargetAura(Debuff.Eradication, timeShift);
-		local _MadnessoftheAzjAqirCB_BUFF = ConRO:Aura(Buff.MadnessoftheAzjAqirCB, timeShift);
 		local _RitualofRuin_BUFF = ConRO:Aura(Buff.RitualofRuin, timeShift);
 	local _Conflagrate, _Conflagrate_RDY = ConRO:AbilityReady(Ability.Conflagrate, timeShift);
-		local _Conflagrate_CHARGES = ConRO:SpellCharges(_Conflagrate);
-		local _Conflagrate_BUFF = ConRO:Aura(Buff.Conflagrate, timeShift);
+		local _Conflagrate_CHARGES, _Conflagrate_MaxCHARGES, _Conflagrate_CCD = ConRO:SpellCharges(_Conflagrate);
+		local _Conflagrate_DEBUFF = ConRO:TargetAura(Debuff.Conflagrate, timeShift);
 		local _BackDraft_BUFF, _BackDraft_COUNT = ConRO:Aura(Buff.BackDraft, timeShift);
 	local _DimensionalRift, _DimensionalRift_RDY = ConRO:AbilityReady(Ability.DimensionalRift, timeShift);
-		local _DimensionalRift_CHARGES = ConRO:SpellCharges(_DimensionalRift);
+		local _DimensionalRift_CHARGES, _DimensionalRift_MaxCHARGES, _DimensionalRift_CCD = ConRO:SpellCharges(_DimensionalRift);
 	local _GrimoireofSacrifice, _GrimoireofSacrifice_RDY = ConRO:AbilityReady(Ability.GrimoireofSacrifice, timeShift);
 		local _GrimoireofSacrifice_BUFF = ConRO:Aura(Buff.GrimoireofSacrifice, timeShift);
 	local _Havoc, _Havoc_RDY, _Havoc_CD = ConRO:AbilityReady(Ability.Havoc, timeShift);
@@ -888,9 +782,8 @@ function ConRO.Warlock.Destruction(_, timeShift, currentSpell, gcd, tChosen, pvp
 		local _Immolate_DEBUFF = ConRO:TargetAura(Debuff.Immolate, timeShift + 3);
 	local _Incinerate, _Incinerate_RDY = ConRO:AbilityReady(Ability.Incinerate, timeShift);
 	local _RainofFire, _RainofFire_RDY = ConRO:AbilityReady(Ability.RainofFire, timeShift);
-		local _MadnessoftheAzjAqirRoF_BUFF = ConRO:Aura(Buff.MadnessoftheAzjAqirRoF, timeShift);
 	local _Shadowburn, _Shadowburn_RDY = ConRO:AbilityReady(Ability.Shadowburn, timeShift);
-		local _MadnessoftheAzjAqirSB_BUFF = ConRO:Aura(Buff.MadnessoftheAzjAqirSB, timeShift);
+		local _Shadowburn_CHARGES = ConRO:SpellCharges(_Shadowburn);
 	local _SoulFire, _SoulFire_RDY = ConRO:AbilityReady(Ability.SoulFire, timeShift);
 	local _SummonInfernal, _SummonInfernal_RDY, _SummonInfernal_CD = ConRO:AbilityReady(Ability.SummonInfernal, timeShift);
 	local _SummonImp, _SummonImp_RDY = ConRO:AbilityReady(Ability.SummonDemon.Imp, timeShift);
@@ -901,24 +794,17 @@ function ConRO.Warlock.Destruction(_, timeShift, currentSpell, gcd, tChosen, pvp
 	local _SpellLock, _SpellLock_RDY = ConRO:AbilityReady(PetAbility.SpellLock, timeShift, 'pet');
 	local _DevourMagic, _DevourMagic_RDY = ConRO:AbilityReady(PetAbility.DevourMagic, timeShift, 'pet');
 
---Conditions
-	local _is_moving = ConRO:PlayerSpeed();
-	local _enemies_in_melee, _target_in_melee = ConRO:Targets("Melee");
-	local _enemies_in_10yrds, _target_in_10yrds = ConRO:Targets("10");
-	local _enemies_in_40yrds, _target_in_40yrds = ConRO:Targets("40");
-	local _can_execute = _Target_Percent_Health <= 20;
-
-	local _Pet_summoned = ConRO:CallPet();
-	local _Pet_assist = ConRO:PetAssist();
-	local _Pet_Percent_Health = ConRO:PercentHealth('pet');
 	local _Void_out = IsSpellKnown(PetAbility.ThreateningPresence.spellID, true);
 
 	if currentSpell == _ChaosBolt then
 		_SoulShards = _SoulShards - 2;
+		_BackDraft_COUNT = _BackDraft_COUNT - 1;
 	elseif currentSpell == _Incinerate then
 		_SoulShards = _SoulShards + 0.2;
+		_BackDraft_COUNT = _BackDraft_COUNT - 1;
 	elseif currentSpell == _SoulFire then
 		_SoulShards = _SoulShards + 1;
+		_BackDraft_COUNT = _BackDraft_COUNT - 1;
 	end
 
 --Indicators
@@ -927,72 +813,93 @@ function ConRO.Warlock.Destruction(_, timeShift, currentSpell, gcd, tChosen, pvp
 	ConRO:AbilityPurge(_DevourMagic, _DevourMagic_RDY and ConRO:Purgable());
 	ConRO:AbilityPurge(_ArcaneTorrent, _ArcaneTorrent_RDY and _target_in_melee and ConRO:Purgable());
 
-	ConRO:AbilityBurst(_SoulFire, _SoulFire_RDY and _SoulShards <= 4 and currentSpell ~= _SoulFire and _in_combat and ConRO:BurstMode(_SoulFire));
 	ConRO:AbilityBurst(_SummonInfernal, _SummonInfernal_RDY and _in_combat and ConRO:BurstMode(_SummonInfernal));
+	ConRO:AbilityBurst(_GrimoireofSacrifice, _GrimoireofSacrifice_RDY and not _GrimoireofSacrifice_BUFF);
 
 --Warnings
 	ConRO:Warnings("Attack Non-Havoced target!", _Havoc_Target_DEBUFF);
 	ConRO:Warnings("Summon your demon!", not tChosen[Ability.GrimoireofSacrifice.talentID] and not _Pet_summoned);
-	ConRO:Warnings("Call your pet to sacrifice!", tChosen[Ability.GrimoireofSacrifice.talentID] and not _GrimoireofSacrifice_BUFF and not _Pet_summoned);
-
-	if _GrimoireofSacrifice_RDY and not _GrimoireofSacrifice_BUFF and not _Void_out then
-		tinsert(ConRO.SuggestedSpells, _GrimoireofSacrifice);
-	end
 
 --Rotations
-	if not _in_combat then
-		if _Incinerate_RDY and currentSpell ~= _Incinerate and currentSpell ~= _SoulFire then
-			tinsert(ConRO.SuggestedSpells, _Incinerate);
-			_Incinerate_RDY = false;
+	for i = 1, 2, 1 do
+		if not _in_combat then
+			if _SoulFire_RDY and not _Immolate_DEBUFF and currentSpell ~= _SoulFire and ConRO:FullMode(_SoulFire) then
+				tinsert(ConRO.SuggestedSpells, _SoulFire);
+				_SoulFire_RDY = false;
+				_Immolate_DEBUFF = true;
+				_SoulShards = _SoulShards + 1;
+				_BackDraft_COUNT = _BackDraft_COUNT - 1;
+			end
+
+			if _Cataclysm_RDY and not _Immolate_DEBUFF and currentSpell ~= _Cataclysm and currentSpell ~= _Immolate and not _is_moving then
+				tinsert(ConRO.SuggestedSpells, _Cataclysm);
+				_Cataclysm_RDY = false;
+				_Immolate_DEBUFF = true;
+			end
+
+			if _Immolate_RDY and not _Immolate_DEBUFF and currentSpell ~= _Cataclysm and currentSpell ~= _Immolate then
+				tinsert(ConRO.SuggestedSpells, _Immolate);
+				_Immolate_RDY = false;
+				_Immolate_DEBUFF = true;
+			end
+
+			if _DimensionalRift_RDY then
+				tinsert(ConRO.SuggestedSpells, _DimensionalRift);
+				_DimensionalRift_CHARGES = _DimensionalRift_CHARGES - 1;
+				_SoulShards = _SoulShards + 0.3;
+			end
+
+			if _SummonInfernal_RDY and ConRO:FullMode(_SummonInfernal) then
+				tinsert(ConRO.SuggestedSpells, _SummonInfernal);
+				_SummonInfernal_RDY = false;
+			end
+
+			if _Incinerate_RDY then
+				tinsert(ConRO.SuggestedSpells, _Incinerate);
+				if tChosen[Ability.DiabolicEmbers.talentID] then
+					_SoulShards = _SoulShards + 0.4;
+				else
+					_SoulShards = _SoulShards + 0.2;
+				end
+				_BackDraft_COUNT = _BackDraft_COUNT - 1;
+			end
 		end
 
-		if _Cataclysm_RDY and not _Immolate_DEBUFF and currentSpell ~= _Cataclysm and currentSpell ~= _Immolate and currentSpell ~= _SoulFire then
-			tinsert(ConRO.SuggestedSpells, _Cataclysm);
-			_Cataclysm_RDY = false;
+		if (ConRO_AutoButton:IsVisible() and (_enemies_in_40yrds >= 5 or (_enemies_in_40yrds >= 3 and not _Havoc_DEBUFF))) or ConRO_AoEButton:IsVisible() then
+			if _RainofFire_RDY and (_SoulShards >= 4.5 or _RitualofRuin_BUFF) then
+				tinsert(ConRO.SuggestedSpells, _RainofFire);
+				if not _RitualofRuin_BUFF then
+					_SoulShards = _SoulShards - 3
+				end
+			end
+		else
+			if _ChaosBolt_RDY and _SoulShards >= 4.5 and currentSpell ~= _ChaosBolt and not _is_moving then
+				tinsert(ConRO.SuggestedSpells, _ChaosBolt);
+				if not _RitualofRuin_BUFF then
+					_SoulShards = _SoulShards - 2;
+				end
+				_BackDraft_COUNT = _BackDraft_COUNT - 1;
+			end
 		end
 
-		if _Immolate_RDY and not _Immolate_DEBUFF and currentSpell ~= _Cataclysm and currentSpell ~= _Immolate and currentSpell ~= _SoulFire then
-			tinsert(ConRO.SuggestedSpells, _Immolate);
-			_Immolate_RDY = false;
-		end
-
-		if _Conflagrate_RDY and _SoulShards <= 4 then
-			tinsert(ConRO.SuggestedSpells, _Conflagrate);
-			_Conflagrate_RDY = false;
-		end
-
-		if _SoulFire_RDY and currentSpell ~= _SoulFire and ConRO:FullMode(_SoulFire) then
+		if _SoulFire_RDY and _SoulShards <= 3.5 and _Conflagrate_DEBUFF and _BackDraft_COUNT >= 1 and currentSpell ~= _SoulFire and ConRO:FullMode(_SoulFire) then
 			tinsert(ConRO.SuggestedSpells, _SoulFire);
 			_SoulFire_RDY = false;
-		end
-	else
-		if _ChaosBolt_RDY and (_SoulShards >= 2 or _RitualofRuin_BUFF) and _MadnessoftheAzjAqirCB_BUFF and currentSpell ~= _ChaosBolt then
-			tinsert(ConRO.SuggestedSpells, _ChaosBolt);
-			if not _RitualofRuin_BUFF then
-				_SoulShards = _SoulShards - 2
-			end
+			_Immolate_DEBUFF = true;
+			_SoulShards = _SoulShards + 1;
+			_BackDraft_COUNT = _BackDraft_COUNT - 1;
 		end
 
-		if _RainofFire_RDY and (_SoulShards >= 3 or _RitualofRuin_BUFF) and _MadnessoftheAzjAqirRoF_BUFF then
-			tinsert(ConRO.SuggestedSpells, _RainofFire);
-			if not _RitualofRuin_BUFF then
-				_SoulShards = _SoulShards - 3
-			end
-		end
-
-		if _Shadowburn_RDY and _SoulShards >= 1 and _MadnessoftheAzjAqirSB_BUFF then
-			tinsert(ConRO.SuggestedSpells, _Shadowburn);
-			_SoulShards = _SoulShards - 1
-		end
-
-		if _Cataclysm_RDY and not _Immolate_DEBUFF and currentSpell ~= _Cataclysm and currentSpell ~= _Immolate then
+		if _Cataclysm_RDY and not _Immolate_DEBUFF and currentSpell ~= _Cataclysm and currentSpell ~= _Immolate and not _is_moving then
 			tinsert(ConRO.SuggestedSpells, _Cataclysm);
 			_Cataclysm_RDY = false;
+			_Immolate_DEBUFF = true;
 		end
 
 		if _Immolate_RDY and not _Immolate_DEBUFF and currentSpell ~= _Cataclysm and currentSpell ~= _Immolate then
 			tinsert(ConRO.SuggestedSpells, _Immolate);
 			_Immolate_RDY = false;
+			_Immolate_DEBUFF = true;
 		end
 
 		if _SummonInfernal_RDY and ConRO:FullMode(_SummonInfernal) then
@@ -1000,23 +907,13 @@ function ConRO.Warlock.Destruction(_, timeShift, currentSpell, gcd, tChosen, pvp
 			_SummonInfernal_RDY = false;
 		end
 
-		if _Berserking_RDY and _SummonInfernal_CD <= 170 then
-			tinsert(ConRO.SuggestedSpells, _Berserking);
-			_Berserking_RDY = false;
+		if _Conflagrate_RDY and (_Conflagrate_CHARGES >= _Conflagrate_MaxCHARGES or (_Conflagrate_CHARGES >= _Conflagrate_MaxCHARGES - 1 and _Conflagrate_CCD <= 1)) then
+			tinsert(ConRO.SuggestedSpells, _Conflagrate);
+			_Conflagrate_CHARGES = _Conflagrate_CHARGES - 1;
+			_SoulShards = _SoulShards + 0.5;
 		end
 
-		if _DimensionalRift_RDY and _DimensionalRift_CHARGES >= 1 and ConRO.lastSpellId ~= _DimensionalRift and ConRO:FullMode(_DimensionalRift) then
-			tinsert(ConRO.SuggestedSpells, _DimensionalRift);
-			_DimensionalRift_CHARGES = _DimensionalRift_CHARGES - 1;
-		end
-
-		if _RainofFire_RDY and _SoulShards >= 3 and (ConRO_AutoButton:IsVisible() and ((_enemies_in_40yrds >= 5 and _Havoc_DEBUFF) or (_enemies_in_40yrds >= 3 and not _Havoc_DEBUFF))) then
-			tinsert(ConRO.SuggestedSpells, _RainofFire);
-			_RainofFire_RDY = false;
-			_SoulShards = _SoulShards - 3;
-		end
-
-		if _SummonSoulkeeper_RDY and _SummonSoulkeeper_Count >= 10 and (ConRO_AutoButton:IsVisible() and _enemies_in_40yrds >= 3) then
+		if _SummonSoulkeeper_RDY and _SummonSoulkeeper_Count >= 10 and ((ConRO_AutoButton:IsVisible() and _enemies_in_40yrds >= 3) or ConRO_AoEButton:IsVisible()) then
 			tinsert(ConRO.SuggestedSpells, _SummonSoulkeeper);
 			__SummonSoulkeeper_Count = 0;
 		end
@@ -1024,61 +921,70 @@ function ConRO.Warlock.Destruction(_, timeShift, currentSpell, gcd, tChosen, pvp
 		if _Havoc_RDY and not _Havoc_DEBUFF and (ConRO_AutoButton:IsVisible() and _enemies_in_40yrds >= 2) then
 			tinsert(ConRO.SuggestedSpells, _Havoc);
 			_Havoc_RDY = false;
+			_Havoc_DEBUFF = true;
 		end
 
-		if _ChaosBolt_RDY and _SoulShards >= 2 and ((tChosen[Ability.Eradication.talentID] and not _Eradication_DEBUFF) or _SoulShards >= 4.5) and ((ConRO_AutoButton:IsVisible() and ((_enemies_in_40yrds < 5 and _Havoc_DEBUFF) or (_enemies_in_40yrds < 3 and not _Havoc_DEBUFF))) or ConRO_SingleButton:IsVisible()) then
-			tinsert(ConRO.SuggestedSpells, _ChaosBolt);
-			_SoulShards = _SoulShards - 2;
+		if (ConRO_AutoButton:IsVisible() and (_enemies_in_40yrds >= 5 or (_enemies_in_40yrds >= 3 and not _Havoc_DEBUFF))) or ConRO_AoEButton:IsVisible() then
+			if _RainofFire_RDY and _SoulShards >= 3 then
+				tinsert(ConRO.SuggestedSpells, _RainofFire);
+				_RainofFire_RDY = false;
+				_SoulShards = _SoulShards - 3;
+			end
+		else
+			if _ChaosBolt_RDY and _SoulShards >= 2 and tChosen[Ability.Eradication.talentID] and not _Eradication_DEBUFF and currentSpell ~= _ChaosBolt and not _is_moving then
+				tinsert(ConRO.SuggestedSpells, _ChaosBolt);
+				_SoulShards = _SoulShards - 2;
+				_Eradication_DEBUFF = true;
+				_BackDraft_COUNT = _BackDraft_COUNT - 1;
+			end
 		end
 
-		if _Shadowburn_RDY and _SoulShards >= 4.5 and _can_execute then
-			tinsert(ConRO.SuggestedSpells, _Shadowburn);
-			_SoulShards = _SoulShards - 1;
-		end
-
-		if _ChannelDemonfire_RDY then
+		if _ChannelDemonfire_RDY and _Immolate_DEBUFF and not _is_moving then
 			tinsert(ConRO.SuggestedSpells, _ChannelDemonfire);
 			_ChannelDemonfire_RDY = false;
 		end
 
-		if _Conflagrate_RDY and (_Conflagrate_CHARGES >= 2 or (_Conflagrate_CHARGES >= 1 and _SoulShards < 2)) then
-			tinsert(ConRO.SuggestedSpells, _Conflagrate);
-			_Conflagrate_CHARGES = _Conflagrate_CHARGES - 1;
+		if _DimensionalRift_RDY and (_DimensionalRift_CHARGES >= _DimensionalRift_MaxCHARGES or (_DimensionalRift_CHARGES >= _DimensionalRift_MaxCHARGES - 1 and _DimensionalRift_CCD <= 3) or (_DimensionalRift_CHARGES >= 1 and _is_moving)) then
+			tinsert(ConRO.SuggestedSpells, _DimensionalRift);
+			_DimensionalRift_CHARGES = _DimensionalRift_CHARGES - 1;
+			_SoulShards = _SoulShards + 0.3;
 		end
 
-		if _SoulFire_RDY and currentSpell ~= _SoulFire and ConRO:FullMode(_SoulFire) then
-			tinsert(ConRO.SuggestedSpells, _SoulFire);
-			_SoulFire_RDY = false;
+		if _Shadowburn_RDY and _Shadowburn_CHARGES > 1 and (_is_moving or ConRO:GetTimeToDie() <= 5) then
+			tinsert(ConRO.SuggestedSpells, _Shadowburn);
+			_Shadowburn_CHARGES = _Shadowburn_CHARGES - 1;
+			_SoulShards = _SoulShards - 1;
+		end
+
+		if _ChaosBolt_RDY and _SoulShards >= 2 and not _is_moving then
+			tinsert(ConRO.SuggestedSpells, _ChaosBolt);
+			_SoulShards = _SoulShards - 2;
+			_BackDraft_COUNT = _BackDraft_COUNT - 1;
+		end
+
+		if _Conflagrate_RDY and _Conflagrate_CHARGES >= 1 and _SoulShards <= 4.5 then
+			tinsert(ConRO.SuggestedSpells, _Conflagrate);
+			_Conflagrate_CHARGES = _Conflagrate_CHARGES - 1;
+			_SoulShards = _SoulShards + 0.5;
 		end
 
 		if _Incinerate_RDY then
 			tinsert(ConRO.SuggestedSpells, _Incinerate);
+			if tChosen[Ability.DiabolicEmbers.talentID] then
+				_SoulShards = _SoulShards + 0.4;
+			else
+				_SoulShards = _SoulShards + 0.2;
+			end
+			_BackDraft_COUNT = _BackDraft_COUNT - 1;
 		end
 	end
 	return nil;
 end
 
 function ConRO.Warlock.DestructionDef(_, timeShift, currentSpell, gcd, tChosen, pvpChosen)
-	wipe(ConRO.SuggestedDefSpells)
-	local Racial, Ability, Form, Buff, Debuff, PetAbility, PvPTalent, Glyph = ids.Racial, ids.Dest_Ability, ids.Dest_Form, ids.Dest_Buff, ids.Dest_Debuff, ids.Dest_PetAbility, ids.Dest_PvPTalent, ids.Glyph;
---Info
-	local _Player_Level = UnitLevel("player");
-	local _Player_Percent_Health = ConRO:PercentHealth('player');
-	local _is_PvP = ConRO:IsPvP();
-	local _in_combat = UnitAffectingCombat('player');
-	local _party_size = GetNumGroupMembers();
-
-	local _is_PC = UnitPlayerControlled("target");
-	local _is_Enemy = ConRO:TarHostile();
-	local _Target_Health = UnitHealth('target');
-	local _Target_Percent_Health = ConRO:PercentHealth('target');
-
---Resources
-	local _Mana, _Mana_Max, _Mana_Percent = ConRO:PlayerPower('Mana');
-	local _SoulShards = ConRO:PlayerPower('SoulShards');
-
---Racials
-	local _Cannibalize, _Cannibalize_RDY = ConRO:AbilityReady(Racial.Cannibalize, timeShift);
+	wipe(ConRO.SuggestedDefSpells);
+	ConRO:Stats();
+	local Ability, Form, Buff, Debuff, PetAbility, PvPTalent = ids.Dest_Ability, ids.Dest_Form, ids.Dest_Buff, ids.Dest_Debuff, ids.Dest_PetAbility, ids.Dest_PvPTalent;
 
 --Abilities
 	local _CreateHealthstone, _CreateHealthstone_RDY = ConRO:AbilityReady(Ability.Healthstone.Create, timeShift);
@@ -1089,17 +995,6 @@ function ConRO.Warlock.DestructionDef(_, timeShift, currentSpell, gcd, tChosen, 
 
 	local _DarkPact, _DarkPact_RDY = ConRO:AbilityReady(Ability.DarkPact, timeShift);
 	local _MortalCoil, _MortalCoil_RDY = ConRO:AbilityReady(Ability.MortalCoil, timeShift);
-
---Conditions
-	local _is_moving = ConRO:PlayerSpeed();
-	local _enemies_in_melee, _target_in_melee = ConRO:Targets("Melee");
-	local _enemies_in_10yrds, _target_in_10yrds = ConRO:Targets("10");
-	local _enemies_in_40yrds, _target_in_40yrds = ConRO:Targets("40");
-
-	local _Pet_summoned = ConRO:CallPet();
-	local _Pet_assist = ConRO:PetAssist();
-	local _Pet_Percent_Health = ConRO:PercentHealth('pet');
-	local _Void_out = IsSpellKnown(PetAbility.ThreateningPresence.spellID, true);
 
 --Rotations	
 	if _CreateHealthstone_RDY and not _in_combat and _Healthstone_COUNT <= 0 then

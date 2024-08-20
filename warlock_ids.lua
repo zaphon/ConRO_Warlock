@@ -67,12 +67,10 @@ local ConRO_Warlock, ids = ...;
 		},
 		UnendingBreath = {spellID = 5697},
 		UnendingResolve = {spellID = 104773},
-		--Passive
 		SoulLeech = {spellID = 108370},
 		SoulShards = {spellID = 246985},
 	--Affliction Baseline
 		Agony = {spellID = 980},
-		--Passive
 		MasteryPotentAfflictions = {spellID = 77215},
 	--Warlock
 		AbyssWalker = {spellID = 389609, talentID = 91465},
@@ -80,8 +78,9 @@ local ConRO_Warlock, ids = ...;
 		AmplifyCurse = {spellID = 328774, talentID = 91442},
 		Banish = {spellID = 710, talentID = 91454},
 		BurningRush = {spellID = 111400, talentID = 91460},
-		CurseofExhaustion = {spellID = 334275, talentID = 91462},
-		CurseofTongues = {spellID = 1714, talentID = 91462},
+		CursesofEnfeeblement = {spellID = 386105, talentID = 91462},
+			CurseofExhaustion = {spellID = 334275, talentID = 91462},
+			CurseofTongues = {spellID = 1714, talentID = 91462},
 		DarkAccord = {spellID = 386659, talentID = 91467},
 		DarkPact = {spellID = 108416, talentID = 91444},
 		Darkfury = {spellID = 264874, talentID = 91451},
@@ -227,6 +226,7 @@ local ConRO_Warlock, ids = ...;
 			SpellLock = {spellID = 119910}, --Felhunter
 			ShadowLock = {spellID = 171140}, --Doomguard
 			MeteorStrike = {spellID = 171152}, --Infernal
+			AxeToss = {spellID = 119914}, --Felguard
 		},
 		Corruption = {spellID = 172},
 		CurseofWeakness = {spellID = 702},
@@ -253,13 +253,10 @@ local ConRO_Warlock, ids = ...;
 		},
 		UnendingBreath = {spellID = 5697},
 		UnendingResolve = {spellID = 104773},
-		--Passive
 		SoulLeech = {spellID = 108370},
 		SoulShards = {spellID = 246985},
 	--Demonology Baseline
 		HandofGuldan = {spellID = 105174},
-		--Passive
-		DemonicCore = {spellID = 267102},
 		MasteryMasterDemonologist = {spellID = 77219},
 	--Warlock
 		AbyssWalker = {spellID = 389609, talentID = 91465},
@@ -267,8 +264,9 @@ local ConRO_Warlock, ids = ...;
 		AmplifyCurse = {spellID = 328774, talentID = 91442},
 		Banish = {spellID = 710, talentID = 91454},
 		BurningRush = {spellID = 111400, talentID = 91460},
-		CurseofExhaustion = {spellID = 334275, talentID = 91462},
-		CurseofTongues = {spellID = 1714, talentID = 91462},
+		CursesofEnfeeblement = {spellID = 386105, talentID = 91462},
+			CurseofExhaustion = {spellID = 334275, talentID = 91462},
+			CurseofTongues = {spellID = 1714, talentID = 91462},
 		DarkAccord = {spellID = 386659, talentID = 91467},
 		DarkPact = {spellID = 108416, talentID = 91444},
 		Darkfury = {spellID = 264874, talentID = 91451},
@@ -316,46 +314,51 @@ local ConRO_Warlock, ids = ...;
 		AnnihilanTraining = {spellID = 386174, talentID = 91542},
 		AntoranArmaments = {spellID = 387494, talentID = 91526},
 		BilescourgeBombers = {spellID = 267211, talentID = 91541},
-		BloodboundImps = {spellID = 387349, talentID = 91519},
 		CallDreadstalkers = {spellID = 104316, talentID = 91543},
 		CarnivorousStalkers = {spellID = 386194, talentID = 91536},
-		Demonbolt = {spellID = 264178, talentID = 91544},
+		Cavitation = {spellID = 416154, talentID = 91527},
+		Demoniac = {spellID = 426115, talentID = 91544},
+			Demonbolt = {spellID = 264178, talentID = 91544},
+			DemonicCore = {spellID = 267102, talentID = 91544},
 		DemonicCalling = {spellID = 205145, talentID = 91535},
 		DemonicKnowledge = {spellID = 386185, talentID = 91546},
-		DemonicMeteor = {spellID = 387396, talentID = 91530},
 		DemonicStrength = {spellID = 267171, talentID = 91540},
 		Doom = {spellID = 603, talentID = 91548},
 		DreadCalling = {spellID = 387391, talentID = 91517},
 		Dreadlash = {spellID = 264078, talentID = 91539},
 		FelandSteel = {spellID = 386200, talentID = 91534},
-		FelCovenant = {spellID = 387432, talentID = 91518},
-		FelMight = {spellID = 387338, talentID = 91532},
+		FelInvocation = {spellID = 428351, talentID = 117752},
 		FelSunder = {spellID = 387399, talentID = 91528},
 		GrandWarlocksDesign = {spellID = 387084, talentID = 91508},
 		GrimoireFelguard = {spellID = 111898, talentID = 91531},
 		Guillotine = {spellID = 386833, talentID = 115460},
 		GuldansAmbition = {spellID = 387578, talentID = 91513},
+		HeavyHanded = {spellID = 416183, talentID = 91532},
 		ImmutableHatred = {spellID = 405670, talentID = 91523},
 		ImpGangBoss = {spellID = 387445, talentID = 91516},
+		Imperator = {spellID = 416230, talentID = 91545},
 		Implosion = {spellID = 196277, talentID = 91520},
 		InfernalCommand = {spellID = 387549, talentID = 91524},
 		InnerDemons = {spellID = 267216, talentID = 91547},
 		KazaaksFinalCurse = {spellID = 387483, talentID = 91549},
+		MaleficImpact = {spellID = 416341, talentID = 91530},
 		NerzhulsVolition = {spellID = 387526, talentID = 91514},
 		NetherPortal = {spellID = 267217, talentID = 91515},
 		PactoftheImpMother = {spellID = 387541, talentID = 91522},
 		PowerSiphon = {spellID = 264130, talentID = 91521},
-		ReignofTyranny = {spellID = 390173, talentID = 91509},
-		RippedthroughthePortal = {spellID = 387485, talentID = 91527},
+		ReignofTyranny = {spellID = 427684, talentID = 91509},
 		SacrificedSouls = {spellID = 267214, talentID = 91511},
-		ShadowsBite = {spellID = 387322, talentID = 91545},
+		ShadowsBite = {spellID = 387322, talentID = 91518},
+		ShadowInvocation = {spellID = 422054, talentID = 117751},
+		SoulStrike = {spellID = 428344, talentID = 91538},
 		SoulboundTyrant = {spellID = 334585, talentID = 91510},
+		SpitefulReconstitution = {spellID = 428394, talentID = 91519},
 		StolenPower = {spellID = 387602, talentID = 91525},
 		SummonDemonicTyrant = {spellID = 265187, talentID = 91550},
 		SummonVilefiend = {spellID = 264119, talentID = 91537},
 		TheExpendables = {spellID = 387600, talentID = 91512},
 		TheHoundmastersStratagem = {spellID = 267170, talentID = 91533},
-		UmbralBlaze = {spellID = 405798, talentID = 915291},
+		UmbralBlaze = {spellID = 405798, talentID = 91529},
 	}
 	ids.Demo_PvPTalent = {
 		SingeMagic = 212623,
@@ -372,7 +375,7 @@ local ConRO_Warlock, ids = ...;
 		CastingCircle = 221703,
 	}
 	ids.Demo_Form = {
-	
+
 	}
 	ids.Demo_Buff = {
 		BurningRush = 111400,
@@ -396,7 +399,8 @@ local ConRO_Warlock, ids = ...;
 		MeteorStrike = {spellID = 171017}, --Infernal	
 		ThreateningPresence = {spellID = 112042}, -- Voidwalker
 		Felstorm = {spellID = 89751}, -- Felguard
-		AxeToss = {spellID = 89766},
+		AxeToss = {spellID = 89766}, -- Felguard
+		SoulStrike = {spellID = 267964, talentID = 91538}, -- Felguard
 	}
 
 --Destruction
@@ -449,8 +453,9 @@ local ConRO_Warlock, ids = ...;
 		AmplifyCurse = {spellID = 328774, talentID = 91442},
 		Banish = {spellID = 710, talentID = 91454},
 		BurningRush = {spellID = 111400, talentID = 91460},
-		CurseofExhaustion = {spellID = 334275, talentID = 91462},
-		CurseofTongues = {spellID = 1714, talentID = 91462},
+		CursesofEnfeeblement = {spellID = 386105, talentID = 91462},
+			CurseofExhaustion = {spellID = 334275, talentID = 91462},
+			CurseofTongues = {spellID = 1714, talentID = 91462},
 		DarkAccord = {spellID = 386659, talentID = 91467},
 		DarkPact = {spellID = 108416, talentID = 91444},
 		Darkfury = {spellID = 264874, talentID = 91451},
@@ -552,9 +557,6 @@ local ConRO_Warlock, ids = ...;
 		DarkSoulInstability = 113858,
 		GrimoireofSacrifice = 196099,
 		InquisitorsGaze = 388068,
-		MadnessoftheAzjAqirCB = 387409,
-		MadnessoftheAzjAqirRoF = 387413,
-		MadnessoftheAzjAqirSB = 387414,
 		RitualofRuin = 387157,
  	}
 	ids.Dest_Debuff = {
